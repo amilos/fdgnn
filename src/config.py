@@ -6,7 +6,7 @@ import os
 
 # --- File Paths (adjust as needed) ---
 
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__)) # Assumes config.py is in project root
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # Get parent of src dir
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 RAW_DATA_DIR = os.path.join(DATA_DIR, "raw")
 PROCESSED_DATA_DIR = os.path.join(DATA_DIR, "processed")
@@ -65,14 +65,14 @@ DEFAULT_CAT_COLUMNS = [
     "ProductCD", "M4", "id_15", "id_34" 
 
 ]
-['dist1', 'D11', 'V1', 'V3', 'V4', 'V6', 'V8', 'V11', 'M1', 'M2', 'M3', 'M5', 'M6', 'M7', 'M8', 'M9']
 
 DEFAULT_NUM_COLUMNS = [
     "TransactionAmt", # Transaction amount
+    "dist1",
     # Counts
     "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C13", "C14", 
     # Time deltas
-    "D2", "D3", "D4", "D5", "D10", "D15",
+    "D2", "D3", "D4", "D5", "D10", "D11", "D15",
     # ID ranks
     "id_01", "id_02", "id_05", "id_06", "id_11"
 ]
@@ -122,6 +122,7 @@ DEFAULT_NON_TARGET_NODE_TYPES = [
 ]
 
 # --- Preprocessing Parameters ---
+NUMBER_OF_ROWS = 30000
 TEST_SPLIT_SIZE = 0.20
 VAL_SPLIT_SIZE = 0.15 # Note: Train size = 1.0 - test_size - val_size
 IMPUTATION_STRATEGY = "median"
