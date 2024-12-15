@@ -16,12 +16,44 @@ PREDICTION_DIR = os.path.join(PROJECT_ROOT, "predictions") # Added for outputs
 TRANSACTION_FILE_TRAIN = os.path.join(RAW_DATA_DIR, "train_transaction.csv")
 IDENTITY_FILE_TRAIN = os.path.join(RAW_DATA_DIR, "train_identity.csv")
 
+TRANSACTION_FILE_TEST = os.path.join(RAW_DATA_DIR, "test_transaction.csv")
+IDENTITY_FILE_TEST = os.path.join(RAW_DATA_DIR, "test_identity.csv")
+
 PROCESSED_DATA_PATH = os.path.join(PROCESSED_DATA_DIR, "processed_data.pkl")
 PROCESSORS_PATH = os.path.join(PROCESSED_DATA_DIR, "processors.joblib")
 GRAPH_DATA_PATH = os.path.join(PROCESSED_DATA_DIR, "graph_data.pt") # Optional path for PyG data
 
 XGB_MODEL_PATH = os.path.join(MODEL_DIR, "xgboost_model.json")
 GNN_MODEL_PATH = os.path.join(MODEL_DIR, "gnn_model.pt")
+
+
+# Paths for the sampled inference demo files
+INFERENCE_SAMPLE_TRANS_PATH = os.path.join(RAW_DATA_DIR, "test_transaction.csv")
+INFERENCE_SAMPLE_ID_PATH = os.path.join(RAW_DATA_DIR, "test_identity.csv")
+
+
+# These are needed to split the sampled data back into original format
+ORIGINAL_TRANSACTION_COLS = [ 
+    'TransactionID', 'isFraud', 'TransactionDT', 'TransactionAmt', 'ProductCD',
+    'card1', 'card2', 'card3', 'card4', 'card5', 'card6', 'addr1', 'addr2',
+    'dist1', 'dist2', 'P_emaildomain', 'R_emaildomain',
+    'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C11', 'C12', 'C13', 'C14',
+    'D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9', 'D10', 'D11', 'D12', 'D13', 'D14', 'D15',
+    'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9'
+    # Add Vesta columns if they are considered part of transaction raw data
+] + [f'V{i}' for i in range(1, 340)] # Example Vesta cols
+
+ORIGINAL_IDENTITY_COLS = [ 
+    'TransactionID', 'id_01', 'id_02', 'id_03', 'id_04', 'id_05', 'id_06',
+    'id_07', 'id_08', 'id_09', 'id_10', 'id_11', 'id_12', 'id_13', 'id_14',
+    'id_15', 'id_16', 'id_17', 'id_18', 'id_19', 'id_20', 'id_21', 'id_22',
+    'id_23', 'id_24', 'id_25', 'id_26', 'id_27', 'id_28', 'id_29', 'id_30',
+    'id_31', 'id_32', 'id_33', 'id_34', 'id_35', 'id_36', 'id_37', 'id_38',
+    'DeviceType', 'DeviceInfo'
+]
+
+
+
 
 # --- Column Definitions ---
 TARGET_COL = 'isFraud'
@@ -122,7 +154,7 @@ DEFAULT_NON_TARGET_NODE_TYPES = [
 ]
 
 # --- Preprocessing Parameters ---
-NUMBER_OF_ROWS = 30000
+NUMBER_OF_ROWS = 100000
 TEST_SPLIT_SIZE = 0.20
 VAL_SPLIT_SIZE = 0.15 # Note: Train size = 1.0 - test_size - val_size
 IMPUTATION_STRATEGY = "median"
@@ -136,7 +168,7 @@ XGB_PARAMS = {
     'eta': 0.05,
     'max_depth': 8,
     'subsample': 0.8,
-    'colsample_bytree': 0.8,
+    'colsample_bytree': 0.6,
     'min_child_weight': 1,
     'gamma': 0.1,
     'lambda': 1,

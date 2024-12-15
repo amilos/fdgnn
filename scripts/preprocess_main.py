@@ -14,14 +14,14 @@ import src.config as config
 
 # Import necessary functions from preprocess_utils
 from preprocess_utils import (
-    load, create_entity_ids, time_based_split, handle_missing_values,
+    load, create_entity_ids, sample_inference_data, time_based_split, handle_missing_values,
     encode_categoricals, scale_numeric_features
 )
 
 def run_common_preprocessing(
     transaction_path,
     identity_path,
-    n_rows=None, # Add n_rows parameter
+    n_rows=None,
     target_col=config.TARGET_COL,
     id_col=config.ID_COL,
     timestamp_col=config.TIMESTAMP_COL,
@@ -65,7 +65,7 @@ def run_common_preprocessing(
     if entity_id_cols is None: entity_id_cols = config.DEFAULT_NON_TARGET_NODE_TYPES
 
     print("1. Loading and Merging Data...")
-    df = load(transaction_path, identity_path, 10000) # Use your loading function
+    df = load(transaction_path, identity_path, n_rows) # Use your loading function
 
 
 
@@ -218,6 +218,21 @@ def run_common_preprocessing(
     print(f"Saving fitted processors to {output_processors_path}")
     os.makedirs(os.path.dirname(output_processors_path), exist_ok=True)
     joblib.dump(processors, output_processors_path)
+
+    try:
+        sample_inference_data(
+            df_original=df, # Pass the df *after* create_entity_ids
+            test_indices=X_test.index, # Use the test indices from the split
+            entity_id_cols=entity_id_cols, # Use the list passed to the function
+            target_col=target_col,
+            n_samples=50, # Target sample size
+            card_id_col='card_id' # Ensure 'card_id' exists after create_entity_ids
+            # Output paths default to config values
+        )
+    except Exception as e:
+        # Catch potential errors during sampling (e.g., not enough data)
+        print(f"Warning: Could not create inference sample data: {e}")
+
 
     print("Common preprocessing completed successfully.")
     # Return value not strictly needed if saving, but can be useful

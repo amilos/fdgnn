@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 from sklearn.impute import SimpleImputer
@@ -6,6 +7,7 @@ from sklearn.utils.validation import check_is_fitted
 from sklearn.exceptions import NotFittedError
 import joblib
 import sys
+import random
 from pathlib import Path
 
 # Add the parent directory to the Python path so 'src' can be found
@@ -426,6 +428,150 @@ def load(transaction_path, identity_path, n_rows=10000):
         raise
     return df
 
+
+
+
+def sample_inference_data(
+    df_original: pd.DataFrame,
+    test_indices: pd.Index,
+    entity_id_cols: list,
+    target_col: str,
+    n_samples: int = 50,
+    card_id_col: str = 'card_id', # Column to prioritize for grouping
+    trans_output_path: str = config.INFERENCE_SAMPLE_TRANS_PATH,
+    id_output_path: str = config.INFERENCE_SAMPLE_ID_PATH,
+    original_trans_cols: list = config.ORIGINAL_TRANSACTION_COLS,
+    original_id_cols: list = config.ORIGINAL_IDENTITY_COLS
+):
+    """
+    Samples data from the test set for inference demonstration.
+
+    Selects a balanced sample (50% fraud, 50% non-fraud) where entity IDs
+    are not missing, prioritizing shared card_ids. Saves the sample back
+    into transaction and identity CSV formats.
+
+    Args:
+        df_original (pd.DataFrame): The original merged DataFrame *after*
+                                    entity ID creation.
+        test_indices (pd.Index): Indices identified as the test set.
+        entity_id_cols (list): List of entity ID column names to check for NaNs.
+        target_col (str): Name of the target column (e.g., 'isFraud').
+        n_samples (int): Total number of samples required (must be even).
+        card_id_col (str): Specific entity ID to prioritize for grouping.
+        trans_output_path (str): Path to save the transaction part of the sample.
+        id_output_path (str): Path to save the identity part of the sample.
+        original_trans_cols (list): List of columns belonging to the original transaction file.
+        original_id_cols (list): List of columns belonging to the original identity file.
+    """
+    print(f"--- Starting Inference Data Sampling (Target: {n_samples} rows) ---")
+    if n_samples % 2 != 0:
+        raise ValueError("n_samples must be an even number for balanced sampling.")
+
+    n_per_class = n_samples // 2
+
+    # 1. Isolate original test data
+    df_test_original = df_original.loc[test_indices].copy()
+    print(f"   Original test set size: {len(df_test_original)}")
+
+    # 2. Filter out rows with missing entity IDs
+    initial_count = len(df_test_original)
+    missing_entity_mask = df_test_original[entity_id_cols].isnull().any(axis=1)
+    df_test_filtered = df_test_original[~missing_entity_mask]
+    print(f"   Removed {initial_count - len(df_test_filtered)} rows with missing entity IDs.")
+    print(f"   Filtered test set size: {len(df_test_filtered)}")
+
+    if len(df_test_filtered) < n_samples:
+        print(f"   Warning: Filtered test set ({len(df_test_filtered)}) is smaller than requested sample size ({n_samples}).")
+        # Decide how to proceed: error out or sample fewer? For now, proceed.
+
+    # 3. Separate by fraud label
+    df_fraud = df_test_filtered[df_test_filtered[target_col] == 1]
+    df_nonfraud = df_test_filtered[df_test_filtered[target_col] == 0]
+    print(f"   Filtered fraud count: {len(df_fraud)}")
+    print(f"   Filtered non-fraud count: {len(df_nonfraud)}")
+
+    # 4. Check if enough samples exist per class
+    if len(df_fraud) < n_per_class or len(df_nonfraud) < n_per_class:
+        print(f"   Error: Not enough samples after filtering to meet the {n_per_class} requirement per class.")
+        print("   Cannot create the balanced inference sample. Skipping sample creation.")
+        return # Exit the function
+
+    # 5. Sample using simplified prioritization for card_id_col
+    print(f"   Sampling {n_per_class} fraud and {n_per_class} non-fraud, prioritizing common '{card_id_col}'...")
+
+    sampled_fraud_indices = set()
+    sampled_nonfraud_indices = set()
+
+    # Find common cards
+    common_cards = set(df_fraud[card_id_col].unique()) & set(df_nonfraud[card_id_col].unique())
+    print(f"   Found {len(common_cards)} common '{card_id_col}' values between classes.")
+
+    # Sample from common cards first
+    common_fraud_df = df_fraud[df_fraud[card_id_col].isin(common_cards)]
+    common_nonfraud_df = df_nonfraud[df_nonfraud[card_id_col].isin(common_cards)]
+
+    # Take up to n_per_class from common fraud
+    indices_to_add = common_fraud_df.sample(min(n_per_class, len(common_fraud_df)), random_state=42).index
+    sampled_fraud_indices.update(indices_to_add)
+
+    # Take up to n_per_class from common non-fraud
+    indices_to_add = common_nonfraud_df.sample(min(n_per_class, len(common_nonfraud_df)), random_state=42).index
+    sampled_nonfraud_indices.update(indices_to_add)
+
+    print(f"   Sampled {len(sampled_fraud_indices)} fraud rows from common cards.")
+    print(f"   Sampled {len(sampled_nonfraud_indices)} non-fraud rows from common cards.")
+
+    # Sample remaining needed randomly from non-common cards
+    needed_fraud = n_per_class - len(sampled_fraud_indices)
+    if needed_fraud > 0:
+        remaining_fraud_df = df_fraud.drop(sampled_fraud_indices)
+        indices_to_add = remaining_fraud_df.sample(min(needed_fraud, len(remaining_fraud_df)), random_state=42).index
+        sampled_fraud_indices.update(indices_to_add)
+        print(f"   Sampled {len(indices_to_add)} additional random fraud rows.")
+
+    needed_nonfraud = n_per_class - len(sampled_nonfraud_indices)
+    if needed_nonfraud > 0:
+        remaining_nonfraud_df = df_nonfraud.drop(sampled_nonfraud_indices)
+        indices_to_add = remaining_nonfraud_df.sample(min(needed_nonfraud, len(remaining_nonfraud_df)), random_state=42).index
+        sampled_nonfraud_indices.update(indices_to_add)
+        print(f"   Sampled {len(indices_to_add)} additional random non-fraud rows.")
+
+    # Combine final indices
+    final_sampled_indices = list(sampled_fraud_indices) + list(sampled_nonfraud_indices)
+    df_sample = df_original.loc[final_sampled_indices].copy() # Get rows from original df
+    print(f"   Final sample size: {len(df_sample)}")
+
+    # 6. Split back into Transaction and Identity format
+    print("   Splitting sample into transaction and identity formats...")
+
+    # Ensure ID column is included in both if not already
+    if config.ID_COL not in original_trans_cols: original_trans_cols.append(config.ID_COL)
+    if config.ID_COL not in original_id_cols: original_id_cols.append(config.ID_COL)
+
+    # Select columns present in the sample df
+    trans_cols_to_save = [col for col in original_trans_cols if col in df_sample.columns]
+    id_cols_to_save = [col for col in original_id_cols if col in df_sample.columns]
+
+    df_sample_trans = df_sample[trans_cols_to_save]
+    df_sample_id = df_sample[id_cols_to_save]
+
+    # 7. Save the sampled files
+    try:
+        os.makedirs(os.path.dirname(trans_output_path), exist_ok=True)
+        os.makedirs(os.path.dirname(id_output_path), exist_ok=True)
+
+        print(f"   Saving transaction sample to: {trans_output_path}")
+        df_sample_trans.to_csv(trans_output_path, index=False)
+
+        print(f"   Saving identity sample to: {id_output_path}")
+        df_sample_id.to_csv(id_output_path, index=False)
+        print("--- Inference Data Sampling Finished ---")
+
+    except Exception as e:
+        print(f"   Error saving sampled files: {e}")
+
+
+
 def preprocess_for_inference(
     df_new: pd.DataFrame,
     processor_path: str,
@@ -446,9 +592,9 @@ def preprocess_for_inference(
          raise
 
      # 2. Initial Column Dropping
-     cols_to_drop = [col for col in exclude_cols_initial if col in df_processed.columns]
-     df_processed = df_processed.drop(columns=cols_to_drop)
-     print(f"   Dropped initial columns: {cols_to_drop}")
+    #  cols_to_drop = [col for col in exclude_cols_initial if col in df_processed.columns]
+    #  df_processed = df_processed.drop(columns=cols_to_drop)
+    #  print(f"   Dropped initial columns: {cols_to_drop}")
 
      # Ensure required columns exist after dropping
      current_num_cols = [col for col in num_cols if col in df_processed.columns]
