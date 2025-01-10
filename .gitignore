@@ -53,6 +53,6 @@ data/processed/*
 .DS_Store
 
 data/raw/.gitkeep
-models/xgboost_model.json
 
 predictions/xgb_predictions.csv
+models/

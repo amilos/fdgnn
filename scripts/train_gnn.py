@@ -15,6 +15,8 @@ from sklearn.metrics import roc_auc_score
 import os
 import sys
 import time # For timing epochs
+import json
+from datetime import datetime
 
 # Add the parent directory to the Python path so 'src' can be found
 sys.path.append(str(Path(__file__).parent.parent))
@@ -26,10 +28,35 @@ from src.gnn_dataset import IeeeFraudDetectionDataset
 # Import your specific GNN model class(es)
 from src.gnn_model import FraudGNN # Import the main wrapper model
 
+
+def convert_to_homogeneous(data: HeteroData): # Remove unused args
+    """Converts HeteroData structure to homogeneous Data object."""
+    print(f"\n--- Converting HeteroData to Homogeneous (Structure Only) ---")
+    if not isinstance(data, HeteroData):
+        print("Data is already homogeneous or not HeteroData.")
+        return data
+    try:
+        # --- Perform conversion WITHOUT node_attrs ---
+        print("   Converting graph structure using data.to_homogeneous()...")
+        homo_data = data.to_homogeneous(add_node_type=True, add_edge_type=True)
+
+        print("Conversion complete. Homogeneous data object:")
+        print(homo_data)
+        # Verify attributes needed later exist
+        if not hasattr(homo_data, 'edge_index'): raise ValueError("edge_index missing")
+        if not hasattr(homo_data, 'node_type'): raise ValueError("node_type missing")
+
+        return homo_data
+    except Exception as e:
+        print(f"Error during data.to_homogeneous() conversion: {e}")
+        raise
+
+
 def train_gnn(
     processed_data_path,
     processors_path,
-    model_output_path,
+    model_base_dir=config.MODEL_DIR, # Base directory for saving models
+    run_id=None, # Optional run ID, generate if None
     model_type='hetero', # 'hetero' or 'homo'
     conv_type='SAGE',    # 'RGCN', 'SAGE', 'GAT' (used by FraudGNN)
     hidden_channels=config.GNN_HIDDEN_DIM,
@@ -55,7 +82,19 @@ def train_gnn(
     #     device = torch.device('mps')
     else:
         device = torch.device('cpu')
-    print(f"Using device: {device}")
+        
+
+    # --- Generate Run ID and Output Paths ---
+    if run_id is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Include key params in ID for easier identification
+        run_id = f"{timestamp}_{model_type}_{conv_type}_h{hidden_channels}_l{num_layers}"
+    print(f"--- Starting GNN Training Run ID: {run_id} ---")
+
+    run_dir = os.path.join(model_base_dir, run_id)
+    os.makedirs(run_dir, exist_ok=True)
+    model_output_path = os.path.join(run_dir, "model_state.pt")
+    config_output_path = os.path.join(run_dir, "config.json")
 
     # 1. Load Processors (for encoder_info)
     print(f"Loading processors from: {processors_path}")
@@ -64,6 +103,7 @@ def train_gnn(
     except FileNotFoundError:
         print(f"Error: Processors file not found at {processors_path}")
         return
+
     encoder_gnn_info = processors.get('encoder_gnn')
     if encoder_gnn_info is None:
         raise ValueError("GNN encoder info ('encoder_gnn') not found in processors file.")
@@ -126,6 +166,30 @@ def train_gnn(
                       for node_type in hetero_data.node_types if hasattr(hetero_data[node_type], 'num_nodes')}
     print(f"Number of nodes per type: {num_nodes_dict}")
 
+        # Store hyperparameters
+    hparams = {
+        'run_id': run_id,
+        'model_type': model_type,
+        'conv_type': conv_type,
+        'hidden_channels': hidden_channels,
+        'num_layers': num_layers,
+        'embedding_dim_other': embedding_dim_other,
+        'gat_heads': gat_heads if conv_type == 'GAT' else None, # Store relevant params
+        'learning_rate': learning_rate,
+        'epochs_run': 0, # Will update later
+        'best_val_auc': 0.0,
+        'stopped_epoch': -1,
+        'num_nodes_per_type': num_nodes_dict, # Store the actual node counts
+        'use_scheduler': use_scheduler,
+        'scheduler_factor': scheduler_factor,
+        'scheduler_patience': scheduler_patience,
+        'scheduler_min_lr': scheduler_min_lr,
+        
+        # Store info needed to reconstruct model from processors
+        'num_numerical_features': processors.get('num_numerical_features'),
+        # I should optionally store keys from encoder_info if I cannot assume processors file is available.
+    }
+
     data = hetero_data # Keep original HeteroData
 
     # Convert to homogeneous if needed
@@ -141,17 +205,16 @@ def train_gnn(
     print("Instantiating model...")
     try:
         model = FraudGNN(
-            node_metadata=original_metadata, # Always pass original metadata
+            node_metadata=original_metadata,
             num_nodes_dict=num_nodes_dict,
             encoder_info=encoder_gnn_info,
-            hidden_channels=hidden_channels,
+            hidden_channels=hparams['hidden_channels'], # Use hparams dict
             out_channels=2,
-            num_layers=num_layers,
-            embedding_dim_other=embedding_dim_other,
-            model_type=model_type, # Tell model its type
-            conv_type=conv_type,
-            heads=gat_heads,
-            # No homo_input_channels needed here anymore
+            num_layers=hparams['num_layers'],
+            embedding_dim_other=hparams['embedding_dim_other'],
+            model_type=hparams['model_type'],
+            conv_type=hparams['conv_type'],
+            heads=hparams['gat_heads']
         ).to(device)
     except Exception as e:
          print(f"Error during model instantiation: {e}")
@@ -253,6 +316,7 @@ def train_gnn(
 
     best_val_auc = 0.0
     epochs_no_improve = 0
+    stopped_epoch = -1
 
     print("Starting training loop...")
     for epoch in range(epochs):
@@ -301,6 +365,8 @@ def train_gnn(
         val_loss = 0.0
         val_mask = hetero_data['transaction'].val_mask # Use original val_mask
 
+        hparams['epochs_run'] = epoch + 1
+
         if val_mask.sum() > 0: # Only evaluate if validation nodes exist
             with torch.no_grad():
                 try:
@@ -341,54 +407,49 @@ def train_gnn(
         # --- Early Stopping & Model Saving ---
         if val_auc > best_val_auc:
             best_val_auc = val_auc
+            hparams['best_val_auc'] = best_val_auc # Store best AUC
+            hparams['stopped_epoch'] = epoch # Store epoch where best model was saved
             epochs_no_improve = 0
             print(f"   New best Val AUC! Saving model to {model_output_path}")
             try:
-                os.makedirs(os.path.dirname(model_output_path), exist_ok=True)
                 torch.save(model.state_dict(), model_output_path)
+                # --- Save config alongside best model ---
+                with open(config_output_path, 'w') as f:
+                    json.dump(hparams, f, indent=4)
+                # --- End Save Config ---
             except Exception as e:
-                 print(f"   Error saving model: {e}")
+                 print(f"   Error saving model or config: {e}")
         else:
             epochs_no_improve += 1
+            stopped_epoch = epoch - 1
 
         if epochs_no_improve >= patience:
             print(f"   Early stopping triggered after {patience} epochs with no improvement.")
+            stopped_epoch = epoch
             break
 
         if use_scheduler and current_lr < scheduler_min_lr * 1.01: # Add a small buffer
             print(f"   Learning rate ({current_lr:.1e}) below minimum threshold. Stopping training.")
             break
+    
+    # Final update and save of config if loop finished normally 
+    if stopped_epoch != hparams['stopped_epoch']: # Check if best wasn't the last
+         hparams['stopped_epoch'] = stopped_epoch
+         try:
+             with open(config_output_path, 'w') as f:
+                 json.dump(hparams, f, indent=4)
+         except Exception as e:
+              print(f"   Error saving final config: {e}")
 
-    print(f"--- GNN Training Finished --- Best Val AUC: {best_val_auc:.4f}")
-
-def convert_to_homogeneous(data: HeteroData): # Remove unused args
-    """Converts HeteroData structure to homogeneous Data object."""
-    print(f"\n--- Converting HeteroData to Homogeneous (Structure Only) ---")
-    if not isinstance(data, HeteroData):
-        print("Data is already homogeneous or not HeteroData.")
-        return data
-    try:
-        # --- Perform conversion WITHOUT node_attrs ---
-        print("   Converting graph structure using data.to_homogeneous()...")
-        homo_data = data.to_homogeneous(add_node_type=True, add_edge_type=True)
-
-        print("Conversion complete. Homogeneous data object:")
-        print(homo_data)
-        # Verify attributes needed later exist
-        if not hasattr(homo_data, 'edge_index'): raise ValueError("edge_index missing")
-        if not hasattr(homo_data, 'node_type'): raise ValueError("node_type missing")
-
-        return homo_data
-    except Exception as e:
-        print(f"Error during data.to_homogeneous() conversion: {e}")
-        raise
+    print(f"--- GNN Training Finished --- Run ID: {run_id} --- Best Val AUC: {best_val_auc:.4f}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train FraudGNN model.")
     parser.add_argument("--data_path", type=str, default=config.PROCESSED_DATA_PATH)
     parser.add_argument("--proc_path", type=str, default=config.PROCESSORS_PATH)
-    parser.add_argument("--model_path", type=str, default=config.GNN_MODEL_PATH)
+    parser.add_argument("--model_base_dir", type=str, default=config.MODEL_DIR, help="Base directory to save model runs.")
+    parser.add_argument("--run_id", type=str, default=None, help="Assign a specific run ID (optional).")
     parser.add_argument("--model_type", type=str, default='homo', choices=['hetero', 'homo'])
     parser.add_argument("--conv_type", type=str, default='SAGE', choices=['RGCN', 'SAGE', 'GAT'])
     parser.add_argument("--hidden_dim", type=int, default=config.GNN_HIDDEN_DIM)
@@ -408,13 +469,14 @@ if __name__ == "__main__":
     train_gnn(
         processed_data_path=args.data_path,
         processors_path=args.proc_path,
-        model_output_path=args.model_path,
+        model_base_dir=args.model_base_dir, 
+        run_id=args.run_id, 
         model_type=args.model_type,
         conv_type=args.conv_type,
         hidden_channels=args.hidden_dim,
         num_layers=args.num_layers,
         embedding_dim_other=args.emb_dim_other,
-        gat_heads=args.gat_heads, # Pass heads
+        gat_heads=args.gat_heads, 
         learning_rate=args.lr,
         epochs=args.epochs,
         patience=args.patience,
