@@ -18,9 +18,10 @@ fdgnn/
 │   ├── preprocess_utils.py # Preprocessing functions
 │   ├── train_gnn.py        # GNN training script
 │   └── train_xgb.py        # XGBoost training script
-├── config.py               # Constants & configurations
-├── gnn_model.py            # GNN architecture definition
-├── gnn_dataset.py          # PyG Dataset class definition
+├── src/                    # Source code for GNN and configurations
+│   ├── config.py           # Constants & configurations
+│   ├── gnn_model.py        # GNN architecture definition
+│   ├── gnn_dataset.py      # PyG Dataset class definition
 ├── requirements.txt        # Python dependencies
 └── README.md               # This file
 ```
@@ -33,7 +34,7 @@ fdgnn/
     ```bash
     pip install -r requirements.txt
     ```
-4.  **Review Configuration:** Check `config.py` for default paths, column names, and parameters. Adjust if necessary.
+4.  **Review Configuration:** Check `src/config.py` for default paths, column names, and parameters. Adjust if necessary.
 5.  **Implement Placeholders:** **Crucially, you need to fill in the placeholder sections marked `# --- PASTE YOUR ... HERE ---` or similar comments within the `.py` files, especially in `preprocess_utils.py`, `gnn_model.py`, and `gnn_dataset.py`, with your specific, reviewed code.**
 
 ## Workflow
@@ -49,19 +50,19 @@ fdgnn/
         ```bash
         python scripts/train_xgb.py
         ```
-        This loads `processed_data.pkl`, trains the model, and saves it to `models/xgboost_model.json`.
+        This loads `data/processed/processed_data.pkl`, trains the model, and saves it to `models/xgboost_model.json`.
     *   **GNN:**
         ```bash
         python scripts/train_gnn.py [--device cpu] # Specify device if needed
         ```
-        This loads `processed_data.pkl` and `processors.joblib`, builds/loads the graph using `gnn_dataset.py`, trains the model defined in `gnn_model.py`, and saves the best model state to `models/gnn_model.pt`.
+        This loads `data/processed/processed_data.pkl` and `data/processed/processors.joblib`, builds/loads the graph using `src/gnn_dataset.py`, trains the model defined in `src/gnn_model.py`, and saves the best model state to `models/gnn_model.pt`.
 
 3.  **Evaluate Models:**
     *   **XGBoost:**
         ```bash
         python scripts/evaluate_xgb.py
         ```
-        Loads the test split from `processed_data.pkl` and the saved model to calculate metrics.
+        Loads the test split from `data/processed/processed_data.pkl` and the saved model to calculate metrics.
     *   **GNN:**
         ```bash
         python scripts/evaluate_gnn.py [--device cpu]
@@ -72,3 +73,10 @@ fdgnn/
     *   **XGBoost:**
         ```bash
         python scripts/infer_xgb.py
+        ```
+        Loads the test split and the saved model to generate predictions.
+    *   **GNN:**
+        ```bash
+        python scripts/infer_gnn.py [--device cpu]
+        ```
+        Loads the graph data and the saved model to generate predictions.

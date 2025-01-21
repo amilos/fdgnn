@@ -95,7 +95,14 @@ DEFAULT_CAT_COLUMNS = [
 
     # Cardinality 3
     "ProductCD", "M4", "id_15", "id_34" 
+]
 
+KEY_CAT_FEATURES = [
+    "ProductCD",
+    "id_13", # Cardinality 32, recommended embedding dim = 8
+    "id_14", # Timezone with cardinality 49, recommended embedding dim = 8
+    "M1", "M4", 
+    "id_15", "id_34" 
 ]
 
 DEFAULT_NUM_COLUMNS = [
@@ -107,6 +114,15 @@ DEFAULT_NUM_COLUMNS = [
     "D2", "D3", "D4", "D5", "D10", "D11", "D15",
     # ID ranks
     "id_01", "id_02", "id_05", "id_06", "id_11"
+]
+
+KEY_NUM_FEATURES = [
+    "TransactionAmt", # Transaction amount
+    "dist1",
+    "C1", "C2",
+    "D2", "D3",
+    "id_01", "id_02",
+    "V1", "V3"
 ]
 
 VESTA_COLUMNS = [
@@ -145,6 +161,11 @@ DEFAULT_NON_TARGET_NODE_TYPES = [
     "locality_id",
 ]
 
+CARD_ID_COLS = ['card1', 'addr1', 'card2', 'card5', 'card6', 'D1', 'TransactionDT']
+DEVICE_ID_COLS = ["id_30", "id_31", "id_32", "id_33", "DeviceType", "DeviceInfo"]
+NETWORK_ID_COLS = ["id_17", "id_19", "id_20"]
+LOCALITY_ID_COLS = ["addr1", "addr2"]
+
 
 # --- Preprocessing Parameters ---
 NUMBER_OF_ROWS = 100000
@@ -180,7 +201,7 @@ GNN_EMBEDDING_DIM_FACTOR = 4
 GNN_MAX_EMBEDDING_DIM = 64
 GNN_PATIENCE = 10
 GNN_NUM_LAYERS = 3 # Keeping layers at 2 for now
-GNN_EMB_DIM_OTHER = 64 # Increased from 32
+GNN_EMB_DIM_OTHER = 32 # Increased from 32
 
 
 GNN_SCHEDULER_FACTOR = 0.5 # Factor to reduce LR by

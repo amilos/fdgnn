@@ -262,10 +262,10 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default='mps', help="Device to use ('cuda', 'cpu', 'mps').") # Keep device arg
     args = parser.parse_args()
 
-    run_dir = "models/20250330_151641_homo_SAGE_h128_l3"
-    run_dir = "models/20250330_145839_homo_SAGE_h128_l3"
-    run_dir = "models/20250330_151436_hetero_RGCN_h256_l2"
-
+    run_dir = "models/20250330_162353_homo_SAGE_h128_l3"    
+    run_dir = "models/20250330_162733_hetero_RGCN_h128_l2"
+    run_dir = "models/20250330_163731_hetero_SAGE_h32_l1"
+    
     evaluate_gnn(
         processed_data_path=args.data_path,
         processors_path=args.proc_path,

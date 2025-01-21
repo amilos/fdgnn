@@ -56,3 +56,4 @@ data/raw/.gitkeep
 
 predictions/xgb_predictions.csv
 models/
+images/
