@@ -258,7 +258,7 @@ if __name__ == "__main__":
     # Create prediction directory if it doesn't exist
     os.makedirs(config.PREDICTION_DIR, exist_ok=True)
 
-    run_dir = "models/20250330_160352_homo_SAGE_h128_l3" # Example run directory
+    run_dir = "models/20250330_160352_homo_SAGE_h128_l3" 
 
     infer_gnn(
         raw_trans_path=args.raw_trans,
