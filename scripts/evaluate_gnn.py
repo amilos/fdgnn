@@ -26,12 +26,12 @@ def evaluate_gnn(
     processed_data_path,
     processors_path,
     run_dir, # Path to the specific model run directory
-    device_str='mps' # Or your preferred default
+    device_str='mps' # Or my preferred default
     ):
     """Evaluates a trained FraudGNN model from a specific run directory on the test set."""
-    print(f"--- Starting GNN Evaluation for Run: {os.path.basename(run_dir)} ---")
+    print(f" Starting GNN Evaluation for Run: {os.path.basename(run_dir)} ")
 
-    # --- Determine Device ---
+   # Determine Device 
     if device_str == 'cuda' and torch.cuda.is_available():
         device = torch.device('cuda')
     # elif device_str == 'mps' and hasattr(torch, 'backends') and hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
@@ -40,7 +40,7 @@ def evaluate_gnn(
         device = torch.device('cpu')
     print(f"Using device: {device}")
 
-    # --- Load Run Configuration ---
+   # Load Run Configuration 
     config_path = os.path.join(run_dir, "config.json")
     model_path = os.path.join(run_dir, "model_state.pt") # Standard name
 
@@ -64,7 +64,7 @@ def evaluate_gnn(
     embedding_dim_other = hparams['embedding_dim_other']
     gat_heads = hparams.get('gat_heads', 4) # Use .get for optional params
 
-    # --- Load Processors ---
+   # Load Processors 
     print(f"Loading processors from: {processors_path}")
     try:
         processors = joblib.load(processors_path)
@@ -77,7 +77,7 @@ def evaluate_gnn(
     if num_numerical_features is None: raise ValueError("Num numerical features missing.")
     encoder_gnn_info['num_numerical_features'] = num_numerical_features
 
-    # --- Instantiate Dataset and Load Data ---
+   # Instantiate Dataset and Load Data 
     print("Initializing GNN Dataset...")
     try:
         dataset_root = os.path.dirname(config.PROCESSED_DATA_DIR)
@@ -92,21 +92,21 @@ def evaluate_gnn(
          raise
 
     print("Graph data loaded.")
-    # --- Store original metadata and num_nodes_dict ---
+   # Store original metadata and num_nodes_dict 
     if isinstance(hetero_data, HeteroData):
         original_metadata = hetero_data.metadata()
     else:
         raise TypeError("Initial data loaded is not HeteroData!")
     num_nodes_dict = {nt: hetero_data[nt].num_nodes for nt in hetero_data.node_types if hasattr(hetero_data[nt], 'num_nodes')}
 
-    # --- Conditionally convert to get homogeneous structure ---
+   # Conditionally convert to get homogeneous structure 
     homo_data_structure = None
     if model_type == 'homo':
         homo_data_structure = convert_to_homogeneous(hetero_data)
         if not isinstance(homo_data_structure, Data): raise TypeError(...)
         homo_data_structure = homo_data_structure.to(device) # Move structure to device
 
-    # --- Pre-calculate Features (Required by the current FraudGNN forward) ---
+   # Pre-calculate Features (Required by the current FraudGNN forward) 
     # This mirrors the logic in train_gnn.py before the loop
     print("Pre-calculating initial node features using FeatureEncoder...")
     # Instantiate a temporary model structure just to access the encoder easily
@@ -156,7 +156,7 @@ def evaluate_gnn(
 
     del temp_model # Remove temporary model
 
-    # --- Instantiate the actual Model for evaluation ---
+   # Instantiate the actual Model for evaluation 
     print("Instantiating model structure for evaluation...")
     model = FraudGNN(
         node_metadata=original_metadata,
@@ -171,7 +171,7 @@ def evaluate_gnn(
         heads=gat_heads                  # From hparams
     ).to(device)
 
-    # --- Load trained weights ---
+   # Load trained weights 
     print(f"Loading trained model weights from: {model_path}")
     try:
         model.load_state_dict(torch.load(model_path, map_location=device))
@@ -184,7 +184,7 @@ def evaluate_gnn(
         return
     model.eval() # Set model to evaluation mode
 
-    # --- Perform Inference ---
+   # Perform Inference 
     print("Performing inference on the graph...")
     eval_start_time = time.time()
     with torch.no_grad():
@@ -201,7 +201,7 @@ def evaluate_gnn(
     eval_duration = time.time() - eval_start_time
     print(f"Inference completed in {eval_duration:.2f}s")
 
-    # --- Extract Test Predictions and Labels ---
+   # Extract Test Predictions and Labels 
     # Use original hetero_data for masks and labels
     test_mask = hetero_data['transaction'].test_mask
     target = hetero_data['transaction'].y
@@ -219,7 +219,7 @@ def evaluate_gnn(
     test_probs_np = test_probs.cpu().numpy()
     test_pred_class_np = test_pred_class.cpu().numpy()
 
-    # --- Calculate Metrics ---
+   # Calculate Metrics 
     print("Calculating evaluation metrics...")
     try:
         if len(np.unique(y_test_np)) > 1:
@@ -236,8 +236,8 @@ def evaluate_gnn(
         print(f"Error calculating metrics: {e}")
         return
 
-    # --- Print Results ---
-    print("\n--- GNN Evaluation Results ---")
+   # Print Results 
+    print("\n GNN Evaluation Results ")
     print(f"Run ID: {os.path.basename(run_dir)}")
     print(f"Model Type: {model_type}, Conv Type: {conv_type}")
     print(f"Test AUC: {auc:.4f}")
@@ -256,9 +256,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate trained FraudGNN model from a run directory.")
     parser.add_argument("--data_path", type=str, default=config.PROCESSED_DATA_PATH, help="Path to processed data pickle (used by dataset).")
     parser.add_argument("--proc_path", type=str, default=config.PROCESSORS_PATH, help="Path to processors joblib (used by dataset).")
-    # --- Use run_dir ---
+   # Use run_dir 
     parser.add_argument("--run_dir", type=str, help="Path to the specific model run directory (e.g., models/run_...).")
-    # --- Architecture args removed - loaded from config.json ---
+   # Architecture args removed - loaded from config.json 
     parser.add_argument("--device", type=str, default='mps', help="Device to use ('cuda', 'cpu', 'mps').") # Keep device arg
     args = parser.parse_args()
 

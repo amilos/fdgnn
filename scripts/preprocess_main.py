@@ -56,7 +56,7 @@ def run_common_preprocessing(
     """
 
 
-    print("--- Starting Common Preprocessing ---")
+    print(" Starting Common Preprocessing ")
 
     # Set defaults from config if args are None
     if exclude_cols_initial is None: exclude_cols_initial = config.DEFAULT_EXCLUDED_COLUMNS
@@ -65,7 +65,7 @@ def run_common_preprocessing(
     if entity_id_cols is None: entity_id_cols = config.DEFAULT_NON_TARGET_NODE_TYPES
 
     print("1. Loading and Merging Data...")
-    df = load(transaction_path, identity_path, n_rows) # Use your loading function
+    df = load(transaction_path, identity_path, n_rows) # Use my loading function
 
 
 
@@ -108,7 +108,7 @@ def run_common_preprocessing(
     processors = {}
     processed_data = {'train': {}, 'val': {}, 'test': {}}
 
-    # --- 5. Impute missing values ---
+   # 5. Impute missing values 
     print("5. Imputing Missing Values...")
     X_train, imputer_dict = handle_missing_values(
         X_train, strategy=imputation_strategy, num_cols=num_cols, cat_cols=cat_cols, fit=True
@@ -124,7 +124,7 @@ def run_common_preprocessing(
     print("   Imputation complete.")
 
 
-    # --- 6a. Encoding for GNN (Label Encoding) ---
+   # 6a. Encoding for GNN (Label Encoding) 
     print("6a. Encoding Categoricals for GNN...")
     X_train_gnn, encoder_gnn = encode_categoricals(X_train.copy(), cat_cols, fit=True, model_type='gnn')
     X_val_gnn, _ = encode_categoricals(X_val.copy(), cat_cols, encoder=encoder_gnn, fit=False, model_type='gnn')
@@ -132,7 +132,7 @@ def run_common_preprocessing(
     processors['encoder_gnn'] = encoder_gnn
     print("   GNN Encoding complete.")
 
-    # --- 6b. Encoding for XGBoost (OHE / Label Encoding based on cardinality) ---
+   # 6b. Encoding for XGBoost (OHE / Label Encoding based on cardinality) 
     print("6b. Encoding Categoricals for XGBoost...")
     X_train_xgb, encoder_xgb = encode_categoricals(
         X_train.copy(), # Use original imputed X_train
@@ -146,7 +146,7 @@ def run_common_preprocessing(
     processors['encoder_xgb'] = encoder_xgb
     print("   XGBoost Encoding complete.")
 
-    # --- 7. Scaling Numerical Features ---
+   # 7. Scaling Numerical Features 
     # Note: We scale the numerical columns within the already encoded dataframes.
     # The numerical columns should still have their original names.
 
@@ -185,7 +185,7 @@ def run_common_preprocessing(
     processed_data['val']['index'] = X_val.index
     processed_data['test']['index'] = X_test.index
 
-    # --- 8. Create the snapshot for GNN ---
+   # 8. Create the snapshot for GNN 
     print("8. Creating snapshot with IDs for graph construction.")
     # Get the entity ID columns (assuming they are defined in config)
     entity_id_cols = config.DEFAULT_NON_TARGET_NODE_TYPES
@@ -211,7 +211,7 @@ def run_common_preprocessing(
 
     processors['num_numerical_features'] = len(num_cols)
 
-    # --- Save Outputs ---
+   # Save Outputs 
     print(f"Saving processed data to {output_data_path}")
     os.makedirs(os.path.dirname(output_data_path), exist_ok=True)
     with open(output_data_path, 'wb') as f:

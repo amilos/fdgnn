@@ -17,7 +17,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 import src.config as config
 # Import necessary functions from preprocess_utils
 from scripts.preprocess_utils import preprocess_for_inference, load, create_entity_ids
-# Import your specific GNN model class(es)
+# Import my specific GNN model class(es)
 from src.gnn_model import FraudGNN
 from torch_geometric.data import Data, HeteroData # Import Data
 
@@ -33,16 +33,16 @@ def infer_gnn(
     output_path="predictions/gnn_predictions.csv",
     # Add strategy argument if implementing multiple inference methods
     # inference_strategy='node_features_only', # or 'batch_graph'
-    device_str='mps' # Or your preferred default
+    device_str='mps' # Or my preferred default
     ):
     """
     Runs inference using a trained FraudGNN model on new raw data.
     Handles loading model config and weights from the run directory.
     NOTE: Graph handling for new nodes needs specific implementation.
     """
-    print(f"--- Starting GNN Inference for Run: {os.path.basename(run_dir)} ---")
+    print(f" Starting GNN Inference for Run: {os.path.basename(run_dir)} ")
 
-    # --- Determine Device ---
+   # Determine Device 
     if device_str == 'cuda' and torch.cuda.is_available():
         device = torch.device('cuda')
     # elif device_str == 'mps' and hasattr(torch, 'backends') and hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
@@ -51,7 +51,7 @@ def infer_gnn(
         device = torch.device('cpu')
     print(f"Using device: {device}")
 
-    # --- Load Run Configuration ---
+   # Load Run Configuration 
     config_path = os.path.join(run_dir, "config.json")
     model_path = os.path.join(run_dir, "model_state.pt")
 
@@ -78,7 +78,7 @@ def infer_gnn(
     if num_nodes_dict_loaded is None:
         raise ValueError("'num_nodes_per_type' not found in loaded hparams (config.json). Re-run training to save it.")
  
-    # --- Load Processors ---
+   # Load Processors 
     print(f"Loading processors from: {processors_path}")
     try:
         processors = joblib.load(processors_path)
@@ -93,7 +93,7 @@ def infer_gnn(
          raise ValueError("Essential information missing from processors file (encoder_gnn, num_numerical_features, final columns).")
     encoder_gnn_info['num_numerical_features'] = num_numerical_features
 
-    # --- Load and Preprocess New Raw Data ---
+   # Load and Preprocess New Raw Data 
     print(f"Loading new raw data from: {raw_trans_path}, {raw_id_path}")
     try:
         df_new_raw = load(raw_trans_path, raw_id_path)
@@ -122,7 +122,7 @@ def infer_gnn(
             cat_cols=final_cat_cols,
             exclude_cols_initial=config.DEFAULT_EXCLUDED_COLUMNS
         )
-        # --- Convert preprocessed features to tensors ---
+       # Convert preprocessed features to tensors 
         # Separate num/cat based on encoder_info for FeatureEncoder input
         cat_cols_encoded = list(encoder_gnn_info.get('embedding_dims', {}).keys())
         cat_cols_present = [col for col in final_cat_cols if col in df_new_processed_features.columns and col in cat_cols_encoded]
@@ -135,7 +135,7 @@ def infer_gnn(
          print(f"Error during inference preprocessing: {e}")
          return
 
-    # --- Instantiate Model ---
+   # Instantiate Model 
     print("Instantiating model structure...")
 
     try:
@@ -155,7 +155,7 @@ def infer_gnn(
          print(f"Error during model instantiation: {e}")
          raise
 
-    # --- Load trained weights ---
+   # Load trained weights 
     print(f"Loading trained model weights from: {model_path}")
     try:
         model.load_state_dict(torch.load(model_path, map_location=device))
@@ -167,13 +167,13 @@ def infer_gnn(
         return
     model.eval()
 
-    # --- Perform Inference ---
+   # Perform Inference 
     print("Performing inference...")
     eval_start_time = time.time()
     predictions_proba = None
     with torch.no_grad():
         try:
-            # --- Strategy A: Node Features Only (Ignoring Graph Structure) ---
+           # Strategy A: Node Features Only (Ignoring Graph Structure) 
             # This only uses the FeatureEncoder and the final linear layer.
             # It's fast but likely inaccurate as it ignores graph context.
             print("  Using Inference Strategy: Node Features Only (No GNN layers)")
@@ -194,7 +194,7 @@ def infer_gnn(
             else:
                  predictions_proba = torch.tensor([]) # Empty result
 
-            # --- Strategy B: Batch Graph Construction (Conceptual - Requires Implementation) ---
+           # Strategy B: Batch Graph Construction (Conceptual - Requires Implementation) 
             # print("  Using Inference Strategy: Batch Graph Construction (Conceptual)")
             # 1. Create entity mappings: Map entity IDs from df_new_raw_with_ids to unique indices for this batch.
             #    Handle potentially unseen entities. Need access to entities seen during training?
@@ -216,7 +216,7 @@ def infer_gnn(
     eval_duration = time.time() - eval_start_time
     print(f"Inference completed in {eval_duration:.2f}s")
 
-    # --- Format and Save Output ---
+   # Format and Save Output 
     if predictions_proba is None:
          print("Warning: Inference failed. No predictions generated.")
          output_df = pd.DataFrame({config.ID_COL: original_ids, config.TARGET_COL: np.nan})
@@ -238,7 +238,7 @@ def infer_gnn(
     except Exception as e:
         print(f"Error saving predictions: {e}")
 
-    print("--- GNN Inference Finished ---")
+    print(" GNN Inference Finished ")
 
 
 if __name__ == "__main__":
@@ -246,11 +246,11 @@ if __name__ == "__main__":
     parser.add_argument("--raw_trans", type=str, default=config.TRANSACTION_FILE_TEST, help="Path to new raw transaction data.")
     parser.add_argument("--raw_id", type=str, default=config.IDENTITY_FILE_TEST, help="Path to new raw identity data.")
     parser.add_argument("--proc_path", type=str, default=config.PROCESSORS_PATH, help="Path to saved processors joblib.")
-    # --- Use run_dir ---
+   # Use run_dir 
     parser.add_argument("--run_dir", type=str, required=False, help="Path to the specific model run directory (e.g., models/run_...).")
-    # --- Output path ---
+   # Output path 
     parser.add_argument("--out_path", type=str, default=os.path.join(config.PREDICTION_DIR, "gnn_predictions.csv"), help="Output path for predictions CSV.")
-    # --- Optional: Add inference strategy arg ---
+   # Optional: Add inference strategy arg 
     # parser.add_argument("--strategy", type=str, default="node_features_only", choices=["node_features_only", "batch_graph"])
     parser.add_argument("--device", type=str, default='mps', help="Device to use ('cuda', 'cpu', 'mps').")
     args = parser.parse_args()

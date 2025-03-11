@@ -20,7 +20,7 @@ from preprocess_utils import preprocess_for_inference, load
 
 def infer_xgboost(raw_trans_path, raw_id_path, processors_path, model_path, output_path):
     """Runs inference using a trained XGBoost model on new raw data."""
-    print("--- Starting XGBoost Inference ---")
+    print(" Starting XGBoost Inference ")
 
     # 1. Load new raw data
     print(f"Loading new raw data from: {raw_trans_path}, {raw_id_path}")
@@ -73,13 +73,13 @@ def infer_xgboost(raw_trans_path, raw_id_path, processors_path, model_path, outp
     try:
         model = xgb.Booster()
         model.load_model(model_path)
-        # --- Get feature names the model expects ---
+       # Get feature names the model expects 
         # Note: feature_names might be None if model saved in older format or without them
         expected_features = model.feature_names
         if expected_features is None:
             # Fallback: Try loading from processors if saved there, or raise error
             # encoder_xgb = processors.get('encoder_xgb')
-            # if encoder_xgb and 'output_features' in encoder_xgb: # Assuming you stored them
+            # if encoder_xgb and 'output_features' in encoder_xgb: # Assuming I stored them
             #      expected_features = encoder_xgb['output_features']
             # else:
             raise ValueError("Cannot determine expected feature names from the loaded XGBoost model. "
@@ -103,7 +103,7 @@ def infer_xgboost(raw_trans_path, raw_id_path, processors_path, model_path, outp
 
         df_final_features = df_new_processed[expected_features]
 
-        # --- Verification Step (Optional but Recommended) ---
+       # Verification Step (Optional but Recommended) 
         print("   Verifying final feature dtypes...")
         invalid_dtypes = df_final_features.select_dtypes(exclude=[np.number, 'bool']).columns # Allow bool too
         if not invalid_dtypes.empty:
@@ -114,7 +114,7 @@ def infer_xgboost(raw_trans_path, raw_id_path, processors_path, model_path, outp
              # print(df_final_features[invalid_dtypes].dtypes)
              return # Stop before creating DMatrix
         print("   Dtypes verified.")
-        # --- End Verification ---
+       # End Verification 
 
     except KeyError as e:
         print(f"Error: Column mismatch. Model expects feature '{e}' which is not in the preprocessed data.")
@@ -153,7 +153,7 @@ def infer_xgboost(raw_trans_path, raw_id_path, processors_path, model_path, outp
     except Exception as e:
         print(f"Error saving predictions: {e}")
 
-    print("--- XGBoost Inference Finished ---")
+    print(" XGBoost Inference Finished ")
 
 
 

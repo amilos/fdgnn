@@ -15,7 +15,7 @@ import src.config as config
 
 def evaluate_xgboost(processed_data_path, model_path):
     """Evaluates a trained XGBoost model on the test set."""
-    print("--- Starting XGBoost Evaluation ---")
+    print(" Starting XGBoost Evaluation ")
     print(f"Loading processed data from: {processed_data_path}")
     try:
         with open(processed_data_path, 'rb') as f:
@@ -76,7 +76,7 @@ def evaluate_xgboost(processed_data_path, model_path):
         print(f"Error calculating metrics: {e}")
         return
 
-    print("\n--- XGBoost Evaluation Results ---")
+    print("\n XGBoost Evaluation Results ")
     print(f"Test AUC: {auc:.4f}")
     print(f"Test Average Precision (AP): {ap:.4f}")
     print("\nClassification Report:")
@@ -84,7 +84,7 @@ def evaluate_xgboost(processed_data_path, model_path):
     print("\nConfusion Matrix:")
     print(f"   TN: {cm[0][0]}  FP: {cm[0][1]}")
     print(f"   FN: {cm[1][0]}  TP: {cm[1][1]}")
-    print("--------------------------------")
+    print("-----------------------------")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate XGBoost model.")

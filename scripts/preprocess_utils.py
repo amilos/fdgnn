@@ -114,7 +114,7 @@ def time_based_split(
               raise ValueError("Index of X contains values not present in df_full's index.")
          # It's okay if df_full has more indices than X, as long as all X indices are in df_full
 
-    # --- Time-Based Split ---
+   # Time-Based Split 
     # Select timestamps corresponding to the rows in X/y and sort
     temp_df_for_split = df_full.loc[X.index, [timestamp_col]].copy()
     temp_df_for_split = temp_df_for_split.sort_values(by=timestamp_col)
@@ -144,7 +144,7 @@ def time_based_split(
     X_test = X.loc[test_indices]
     y_test = y.loc[test_indices]
 
-    # --- End Time-Based Split ---
+   # End Time-Based Split 
 
     print(f"   Train shape: {X_train.shape} (Indices from {train_indices.min()} to {train_indices.max()})")
     print(f"   Val shape: {X_val.shape} (Indices from {val_indices.min()} to {val_indices.max()})")
@@ -282,7 +282,7 @@ def encode_categoricals(df, cat_cols, encoder=None, fit=True, model_type='xgboos
         encoder['low_card_cols'] = [col for col in cat_cols_present if encoder['categories'][col] <= cardinality_threshold]
         encoder['high_card_cols'] = [col for col in cat_cols_present if encoder['categories'][col] > cardinality_threshold]
 
-        # --- GNN Specific Fitting ---
+       # GNN Specific Fitting 
         if model_type == 'gnn':
             # Ensure cat_cols_present is used if GNN logic relies on all cat cols
             cols_to_process_gnn = cat_cols_present
@@ -298,7 +298,7 @@ def encode_categoricals(df, cat_cols, encoder=None, fit=True, model_type='xgboos
                 encoder['label_encoders'][col] = {k: i for i, k in enumerate(df[col].astype('category').cat.categories)}
 
 
-        # --- XGBoost Specific Fitting ---
+       # XGBoost Specific Fitting 
         elif model_type == 'xgboost':
             # Fit OneHotEncoder ONLY for low cardinality features for XGBoost
             if encoder['low_card_cols']:
@@ -321,13 +321,13 @@ def encode_categoricals(df, cat_cols, encoder=None, fit=True, model_type='xgboos
                      df[col] = df[col].fillna('missing_during_fit')
                      encoder['label_encoders'][col] = {k: i for i, k in enumerate(df[col].astype('category').cat.categories)}
 
-        # --- Apply transform after fitting to return consistent output ---
+       # Apply transform after fitting to return consistent output 
         # This ensures the returned df from fit=True has the same structure as fit=False
         df_transformed, _ = encode_categoricals(df, cat_cols_present, encoder=encoder, fit=False, model_type=model_type)
         return df_transformed, encoder
 
 
-    # --- Transformation (fit=False) ---
+   # Transformation (fit=False) 
     else:
         if encoder is None:
              raise ValueError("Encoder must be provided when fit=False.")
@@ -365,7 +365,7 @@ def encode_categoricals(df, cat_cols, encoder=None, fit=True, model_type='xgboos
                         columns=ohe_feature_names, # Use stored names
                         index=df_processed.index
                     )
-                    # --- End Minimal Fix ---
+                   # End Minimal Fix 
 
                     # Drop original low card cols and concat OHE cols
                     df_processed = df_processed.drop(columns=low_card_cols_present_transform)
@@ -406,31 +406,6 @@ def encode_categoricals(df, cat_cols, encoder=None, fit=True, model_type='xgboos
 
 
 def scale_numeric_features(df: pd.DataFrame, num_cols: list, scaler: StandardScaler = None, fit: bool = True) -> tuple[pd.DataFrame, StandardScaler]:
-    """
-    Scales numeric features using StandardScaler.
-
-    Assumes the same scaling is appropriate for both XGBoost and GNNs,
-    which is generally a safe default (critical for GNNs, often neutral
-    or slightly beneficial for XGBoost).
-
-    Args:
-        df (pd.DataFrame): DataFrame containing the data.
-        num_cols (list): List of numerical column names to scale.
-        scaler (StandardScaler, optional): A pre-fitted StandardScaler instance.
-                                           Required if fit=False. Defaults to None.
-        fit (bool): If True, fit a new scaler and transform.
-                    If False, use the provided scaler to transform. Defaults to True.
-
-    Returns:
-        tuple[pd.DataFrame, StandardScaler]:
-            - DataFrame with scaled numeric features.
-            - The fitted or provided StandardScaler instance.
-
-    Raises:
-        ValueError: If fit=False and scaler is None.
-        NotFittedError: If fit=False and the provided scaler is not fitted.
-        KeyError: If columns in num_cols are not found in df during transform.
-    """
 
     df = df.copy()
 
@@ -500,27 +475,8 @@ def sample_inference_data(
     original_trans_cols: list = config.ORIGINAL_TRANSACTION_COLS,
     original_id_cols: list = config.ORIGINAL_IDENTITY_COLS
 ):
-    """
-    Samples data from the test set for inference demonstration.
 
-    Selects a balanced sample (50% fraud, 50% non-fraud) where entity IDs
-    are not missing, prioritizing shared card_ids. Saves the sample back
-    into transaction and identity CSV formats.
-
-    Args:
-        df_original (pd.DataFrame): The original merged DataFrame *after*
-                                    entity ID creation.
-        test_indices (pd.Index): Indices identified as the test set.
-        entity_id_cols (list): List of entity ID column names to check for NaNs.
-        target_col (str): Name of the target column (e.g., 'isFraud').
-        n_samples (int): Total number of samples required (must be even).
-        card_id_col (str): Specific entity ID to prioritize for grouping.
-        trans_output_path (str): Path to save the transaction part of the sample.
-        id_output_path (str): Path to save the identity part of the sample.
-        original_trans_cols (list): List of columns belonging to the original transaction file.
-        original_id_cols (list): List of columns belonging to the original identity file.
-    """
-    print(f"--- Starting Inference Data Sampling (Target: {n_samples} rows) ---")
+    print(f" Starting Inference Data Sampling (Target: {n_samples} rows) ")
     if n_samples % 2 != 0:
         raise ValueError("n_samples must be an even number for balanced sampling.")
 
@@ -622,7 +578,7 @@ def sample_inference_data(
 
         print(f"   Saving identity sample to: {id_output_path}")
         df_sample_id.to_csv(id_output_path, index=False)
-        print("--- Inference Data Sampling Finished ---")
+        print(" Inference Data Sampling Finished ")
 
     except Exception as e:
         print(f"   Error saving sampled files: {e}")

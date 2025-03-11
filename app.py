@@ -9,12 +9,12 @@ import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 from sklearn.metrics import confusion_matrix # For dynamic thresholding
 
-# --- Add project root to path ---
+#  Add project root to path 
 project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.append(str(project_root))
 
-# --- Import config ---
+#  Import config 
 try:
     import src.config as config
 except ImportError as e:
@@ -33,7 +33,7 @@ except ImportError as e:
     })()
     print("Using manually defined config variables.")
 
-# --- Caching Function for Data Loading ---
+#  Caching Function for Data Loading 
 @st.cache_data # Cache the combined data loading
 def load_demo_data_with_predictions():
     try:
@@ -70,7 +70,7 @@ def load_demo_data_with_predictions():
         df_demo = pd.merge(df_demo, df_gnn_preds[[config.ID_COL, 'gnn_score']], on=config.ID_COL, how='left')
         print(f"Final demo data shape: {df_demo.shape}")
 
-        # --- Ensure scores are numeric, fill missing XGB with NaN for calculation ---
+       # Ensure scores are numeric, fill missing XGB with NaN for calculation 
         df_demo['xgb_score'] = pd.to_numeric(df_demo['xgb_score'], errors='coerce')
         df_demo['gnn_score'] = pd.to_numeric(df_demo['gnn_score'], errors='coerce')
         # Store original fraud status as 0/1 for metric calculations
@@ -84,7 +84,7 @@ def load_demo_data_with_predictions():
     except Exception as e:
         st.error(f"An unexpected error occurred during data loading: {e}")
         return pd.DataFrame()
-# --- Color Mapping ---
+#  Color Mapping 
 def probability_to_color(prob):
     # ... (same function as before) ...
     if prob is None or pd.isna(prob):
@@ -100,7 +100,7 @@ def probability_to_color(prob):
         print(f"Color mapping error: {e}")
         return 'background-color: white'
 
-# --- Row Styling for Actual Fraud ---
+#  Row Styling for Actual Fraud 
 def highlight_fraud(row):
     """Applies background style to rows that are actual fraud."""
     color = '#FFDDDD'
@@ -109,7 +109,7 @@ def highlight_fraud(row):
     else:
         return [''] * len(row)
 
-# --- Agreement Flag ---
+#  Agreement Flag 
 def agreement_flag(row, threshold=0.5):
     # ... (same function as before, uses gnn_score_calibrated if exists) ...
     gnn_col = 'gnn_score_calibrated' if 'gnn_score_calibrated' in row else 'gnn_score'
@@ -120,36 +120,36 @@ def agreement_flag(row, threshold=0.5):
     elif not xgb_pred and gnn_pred: return "✅🚨"
     else: return "🚨✅"
 
-# --- Streamlit App Layout ---
+#  Streamlit App Layout 
 st.set_page_config(layout="wide")
 st.title("Fraud Detection Demo: XGBoost vs. GNN")
 st.caption("Showing sample test data. Click 'Score' to reveal pre-calculated model scores.")
 
-# --- Initialize Session State ---
+#  Initialize Session State 
 if 'scores_calculated' not in st.session_state:
     st.session_state.scores_calculated = False
 if 'threshold' not in st.session_state:
     st.session_state.threshold = 0.50
 
-# --- Load Data ---
+#  Load Data 
 df_demo_raw = load_demo_data_with_predictions()
 
 if df_demo_raw.empty:
     st.error("Failed to load necessary data. Cannot run demo.")
     st.stop()
 
-# --- Button to trigger scoring display ---
+#  Button to trigger scoring display 
 if st.button("Score Transactions", key="score_button"):
     st.session_state.scores_calculated = True
     st.rerun() # Rerun needed to update display logic
 
 st.divider()
 
-# --- Data Preparation & Filtering ---
+#  Data Preparation & Filtering 
 st.subheader("Sample Test Transactions")
 df_display_full = df_demo_raw.copy()
 
-# --- Prepare columns based on whether scores are shown ---
+#  Prepare columns based on whether scores are shown 
 xgb_score_col = 'xgb_score'
 gnn_score_col = 'gnn_score'
 gnn_score_col_calibrated = 'gnn_score_calibrated'
@@ -192,7 +192,7 @@ else:
     xgb_col_for_style = xgb_display_name
     gnn_col_for_style = gnn_display_name
 
-# --- Format Timestamp, Amount, isFraud (always) ---
+#  Format Timestamp, Amount, isFraud (always) 
 # ... (formatting logic using df_display_full) ...
 if config.TIMESTAMP_COL in df_display_full.columns:
     min_sample_dt = df_demo_raw[config.TIMESTAMP_COL].min()
@@ -206,11 +206,11 @@ if config.TARGET_COL in df_display_full.columns:
     df_display_full[config.TARGET_COL] = df_display_full[config.TARGET_COL].apply(lambda x: '🚨' if x == 1 else '✅')
 
 
-# --- Order by Time ---
+#  Order by Time 
 if 'TransactionDT_Orig' in df_display_full.columns:
     df_display_full = df_display_full.sort_values(by='TransactionDT_Orig', ascending=True)
 
-# --- Select Top 20 GNN Confidence (only if scores are shown) ---
+#  Select Top 20 GNN Confidence (only if scores are shown) 
 if st.session_state.scores_calculated:
     df_display_full['gnn_confidence'] = abs(df_display_full[gnn_score_col] - 0.5)
     df_display_filtered = df_display_full.sort_values(by='gnn_confidence', ascending=False).head(20)
@@ -225,7 +225,7 @@ if 'TransactionDT_Orig' in df_display_filtered.columns:
     df_display_filtered = df_display_filtered.drop(columns=['TransactionDT_Orig'])
 
 
-# --- Prepare Final Display DataFrame and Styler ---
+#  Prepare Final Display DataFrame and Styler 
 # Create the DataFrame with the columns intended for final display
 display_cols_config = getattr(config, 'DISPLAY_COLS', ['TransactionID', 'TransactionDT', 'isFraud', 'TransactionAmt'])
 # Define the source columns needed for display (using original/calibrated names)
@@ -246,7 +246,7 @@ styler = styler.format({
     'Score Diff': '{:.3f}'
 }, na_rep="None").apply(lambda x: x.map(probability_to_color), subset=[xgb_col_for_style, gnn_col_for_style])
 
-# --- Rename columns *after* styling is defined, just before display ---
+#  Rename columns *after* styling is defined, just before display 
 df_to_show = df_for_styling.rename(columns={
     xgb_col_for_style: 'XGB Score',
     gnn_col_for_style: 'GNN Score'
@@ -255,7 +255,7 @@ df_to_show = df_for_styling.rename(columns={
 # Get final display names after renaming
 final_display_col_names = list(df_to_show.columns)
 
-# --- Display Table with Styling ---
+#  Display Table with Styling 
 st.dataframe(
     styler, # Pass the styler object which styles the underlying df_for_styling
     column_config={ # Use column_config for renaming and final formatting
@@ -273,7 +273,7 @@ st.caption("Score cell color indicates predicted fraud probability (Green=Low, R
 
 st.divider()
 
-# --- Threshold Slider and Dynamic CM ---
+#  Threshold Slider and Dynamic CM 
 if st.session_state.scores_calculated:
     st.subheader("Classification Threshold Analysis (on displayed data)")
     new_threshold = st.slider(

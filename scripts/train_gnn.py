@@ -25,18 +25,18 @@ import src.config as config
 
 from src.gnn_dataset import IeeeFraudDetectionDataset
 
-# Import your specific GNN model class(es)
+# Import my specific GNN model class(es)
 from src.gnn_model import FraudGNN # Import the main wrapper model
 
 
 def convert_to_homogeneous(data: HeteroData): # Remove unused args
     """Converts HeteroData structure to homogeneous Data object."""
-    print(f"\n--- Converting HeteroData to Homogeneous (Structure Only) ---")
+    print(f"\n Converting HeteroData to Homogeneous (Structure Only) ")
     if not isinstance(data, HeteroData):
         print("Data is already homogeneous or not HeteroData.")
         return data
     try:
-        # --- Perform conversion WITHOUT node_attrs ---
+       # Perform conversion WITHOUT node_attrs 
         print("   Converting graph structure using data.to_homogeneous()...")
         homo_data = data.to_homogeneous(add_node_type=True, add_edge_type=True)
 
@@ -74,7 +74,7 @@ def train_gnn(
     ):
  
 
-    print(f"--- Starting GNN Training (Model Type: {model_type}, Conv Type: {conv_type}) ---")
+    print(f" Starting GNN Training (Model Type: {model_type}, Conv Type: {conv_type}) ")
     # Set device with support for CUDA, MPS (Apple Silicon), or CPU fallback
     if device_str == 'cuda' and torch.cuda.is_available():
         device = torch.device('cuda')
@@ -84,12 +84,12 @@ def train_gnn(
         device = torch.device('cpu')
         
 
-    # --- Generate Run ID and Output Paths ---
+   # Generate Run ID and Output Paths 
     if run_id is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         # Include key params in ID for easier identification
         run_id = f"{timestamp}_{model_type}_{conv_type}_h{hidden_channels}_l{num_layers}"
-    print(f"--- Starting GNN Training Run ID: {run_id} ---")
+    print(f" Starting GNN Training Run ID: {run_id} ")
 
     run_dir = os.path.join(model_base_dir, run_id)
     os.makedirs(run_dir, exist_ok=True)
@@ -107,9 +107,9 @@ def train_gnn(
     encoder_gnn_info = processors.get('encoder_gnn')
     if encoder_gnn_info is None:
         raise ValueError("GNN encoder info ('encoder_gnn') not found in processors file.")
-    # --- Get number of numerical features (MUST be stored during preprocessing) ---
-    # Add this to your preprocess_main.py when saving processors:
-    # processors['num_numerical_features'] = len(current_num_cols) # Or however you track it
+   # Get number of numerical features (MUST be stored during preprocessing) 
+    # Add this to my preprocess_main.py when saving processors:
+    # processors['num_numerical_features'] = len(current_num_cols) # Or however I track it
     num_numerical_features = processors.get('num_numerical_features')
     if num_numerical_features is None:
          raise ValueError("Number of numerical features ('num_numerical_features') not found in processors file. Please save it during preprocessing.")
@@ -359,7 +359,7 @@ def train_gnn(
         optimizer.step()
         train_loss = loss.item()
 
-        # --- Validation ---
+       # Validation 
         model.eval()
         val_auc = 0.0
         val_loss = 0.0
@@ -404,7 +404,7 @@ def train_gnn(
         if use_scheduler and scheduler is not None:
             scheduler.step(val_auc)
 
-        # --- Early Stopping & Model Saving ---
+       # Early Stopping & Model Saving 
         if val_auc > best_val_auc:
             best_val_auc = val_auc
             hparams['best_val_auc'] = best_val_auc # Store best AUC
@@ -413,10 +413,10 @@ def train_gnn(
             print(f"   New best Val AUC! Saving model to {model_output_path}")
             try:
                 torch.save(model.state_dict(), model_output_path)
-                # --- Save config alongside best model ---
+               # Save config alongside best model 
                 with open(config_output_path, 'w') as f:
                     json.dump(hparams, f, indent=4)
-                # --- End Save Config ---
+               # End Save Config 
             except Exception as e:
                  print(f"   Error saving model or config: {e}")
         else:
@@ -441,7 +441,7 @@ def train_gnn(
          except Exception as e:
               print(f"   Error saving final config: {e}")
 
-    print(f"--- GNN Training Finished --- Run ID: {run_id} --- Best Val AUC: {best_val_auc:.4f}")
+    print(f" GNN Training Finished  Run ID: {run_id}  Best Val AUC: {best_val_auc:.4f}")
 
 
 if __name__ == "__main__":

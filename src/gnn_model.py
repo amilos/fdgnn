@@ -30,7 +30,7 @@ class FeatureEncoder(nn.Module):
 
         total_trans_input_dim = 0
 
-        # --- Transaction Node Feature Processing ---
+       # Transaction Node Feature Processing 
         trans_num_features = encoder_info.get('num_numerical_features', 0) # Store this during preprocessing!
         trans_cat_cols = list(encoder_info.get('embedding_dims', {}).keys())
         total_trans_input_dim += trans_num_features
@@ -57,7 +57,7 @@ class FeatureEncoder(nn.Module):
              print("  FeatureEncoder: Warning - No initial features defined for transaction nodes.")
 
 
-        # --- Other Node Type Embeddings ---
+       # Other Node Type Embeddings 
         for node_type in self.node_types: # Iterate directly through the string names
             print(f"  Processing node_type: '{node_type}'") # Keep for debugging if needed
 
@@ -189,13 +189,13 @@ class FeatureEncoder(nn.Module):
                 device = torch.device('cpu')
 
 
-        # --- Process All Node Types ---
+       # Process All Node Types 
         for node_type in self.node_types:
             # Initialize placeholder for this node type's features
             final_node_features = None
 
             if node_type == 'transaction':
-                # --- Transaction Node Processing ---
+               # Transaction Node Processing 
                 trans_features = []
                 # Use .get() safely for potentially missing keys/values
                 trans_input = x_dict.get('transaction', {})
@@ -227,7 +227,7 @@ class FeatureEncoder(nn.Module):
                 # else: # No transaction features found - will be handled below
 
             else:
-                # --- Other Node Type Processing ---
+               # Other Node Type Processing 
                 if node_type in self.embeddings_other: # Check if embedding layer exists
                     x_emb = None
                     if n_id_dict is not None: # Sampled batch
@@ -257,7 +257,7 @@ class FeatureEncoder(nn.Module):
                          final_node_features = x_emb
                 # else: # No embedding created for this node type (num_nodes=0) - handled below
 
-            # --- Ensure Output Tensor Exists for this node_type ---
+           # Ensure Output Tensor Exists for this node_type 
             if final_node_features is None:
                 # Determine the expected number of nodes for the output tensor
                 current_num_nodes = 0
@@ -272,11 +272,11 @@ class FeatureEncoder(nn.Module):
                 # print(f"   FeatureEncoder: Creating zero tensor for node type '{node_type}' (shape: ({current_num_nodes}, {self.hidden_dim}))")
                 final_node_features = torch.zeros((current_num_nodes, self.hidden_dim), device=device)
 
-            # --- Assign to output dictionary ---
+           # Assign to output dictionary 
             out_x_dict[node_type] = final_node_features
-            # --- End Loop ---
+           # End Loop 
 
-        # --- Final Check (Optional Safeguard) ---
+       # Final Check (Optional Safeguard) 
         # Ensure all node types from metadata are present in the output dict
         for node_type in self.node_types:
              if node_type not in out_x_dict:
@@ -304,10 +304,10 @@ class HeteroGNN(nn.Module):
             elif conv_type == 'SAGE':
                 conv = SAGEConv(in_dim, current_out_channels, aggr='mean')
             elif conv_type == 'GAT':
-                # --- MODIFIED: Use heads, ensure concat=False if output dim should be current_out_channels ---
+               # MODIFIED: Use heads, ensure concat=False if output dim should be current_out_channels 
                 # If concat=True, output dim would be current_out_channels * heads
                 conv = GATConv(in_dim, current_out_channels, heads=heads, concat=False, dropout=0.5) # Using concat=False
-                # --- END MODIFIED ---
+               # END MODIFIED 
             else:
                 raise ValueError(f"Unsupported conv_type: {conv_type}")
 
@@ -411,7 +411,7 @@ class FraudGNN(nn.Module):
             # HeteroGNN outputs hidden_channels
             gnn_out_dim = hidden_channels 
         elif self.model_type == 'homo':
-            # --- HomoGNN now takes hidden_channels as input ---
+           # HomoGNN now takes hidden_channels as input 
             print(f"  Instantiating HomoGNN with input_channels={hidden_channels}")
             self.gnn = HomoGNN(
                 in_channels=hidden_channels, # Input comes from FeatureEncoder

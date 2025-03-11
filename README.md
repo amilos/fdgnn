@@ -35,7 +35,6 @@ fdgnn/
     pip install -r requirements.txt
     ```
 4.  **Review Configuration:** Check `src/config.py` for default paths, column names, and parameters. Adjust if necessary.
-5.  **Implement Placeholders:** **Crucially, you need to fill in the placeholder sections marked `# --- PASTE YOUR ... HERE ---` or similar comments within the `.py` files, especially in `preprocess_utils.py`, `gnn_model.py`, and `gnn_dataset.py`, with your specific, reviewed code.**
 
 ## Workflow
 

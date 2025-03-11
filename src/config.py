@@ -4,7 +4,7 @@ Central configuration file for column names, paths, and constants.
 """
 import os
 
-# --- File Paths (adjust as needed) ---
+#  File Paths (adjust as needed) 
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # Get parent of src dir
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
@@ -55,12 +55,12 @@ ORIGINAL_IDENTITY_COLS = [
 
 
 
-# --- Column Definitions ---
+#  Column Definitions 
 TARGET_COL = 'isFraud'
 ID_COL = 'TransactionID'
 TIMESTAMP_COL = 'TransactionDT'
 
-# --- Columns to Exclude ---
+#  Columns to Exclude 
 DEFAULT_EXCLUDED_COLUMNS = [
     # idetifier of target node, target label, timestamp of transaction
     "TransactionID", "isFraud", "TransactionDT", 
@@ -84,7 +84,7 @@ GNN_EXCLUDED_COLUMNS = [
     "addr1", "addr2"
 ]  
 
-# --- Feature Columns ---
+#  Feature Columns 
 DEFAULT_CAT_COLUMNS = [
     "id_13", # Cardinality 32, recommended embedding dim = 8
     "id_14", # Timezone with cardinality 49, recommended embedding dim = 8
@@ -167,14 +167,14 @@ NETWORK_ID_COLS = ["id_17", "id_19", "id_20"]
 LOCALITY_ID_COLS = ["addr1", "addr2"]
 
 
-# --- Preprocessing Parameters ---
+#  Preprocessing Parameters 
 NUMBER_OF_ROWS = 100000
 TEST_SPLIT_SIZE = 0.20
 VAL_SPLIT_SIZE = 0.15 # Note: Train size = 1.0 - test_size - val_size
 IMPUTATION_STRATEGY = "median"
 CARDINALITY_THRESHOLD_FOR_OHE = 10 # For XGBoost encoding
 
-# --- Model Hyperparameters ---
+#  Model Hyperparameters 
 # XGBoost
 XGB_PARAMS = {
     'objective': 'binary:logistic',

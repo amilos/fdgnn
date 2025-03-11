@@ -17,7 +17,7 @@ import src.config as config
 
 def train_xgboost(processed_data_path, model_output_path):
     """Trains an XGBoost model."""
-    print("--- Starting XGBoost Training ---")
+    print(" Starting XGBoost Training ")
     print(f"Loading processed data from: {processed_data_path}")
     try:
         with open(processed_data_path, 'rb') as f:
@@ -67,7 +67,7 @@ def train_xgboost(processed_data_path, model_output_path):
     print(f"Saving trained model to: {model_output_path}")
     model.save_model(model_output_path) # Use native save_model
 
-    print("--- XGBoost Training Finished ---")
+    print(" XGBoost Training Finished ")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train XGBoost model.")

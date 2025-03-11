@@ -122,7 +122,7 @@ class IeeeFraudDetectionDataset(InMemoryDataset):
             # print(f"   GNN Features: Dropped {cols_to_drop} for split '{split}'")
 
         # Separate numerical and categorical based on the GNN encoder info
-        # This is needed if your GNN model expects separate inputs
+        # This is needed if my GNN model expects separate inputs
         encoder_gnn = self.processors.get('encoder_gnn', {})
         cat_cols_encoded = list(encoder_gnn.get('embedding_dims', {}).keys())
         cat_cols_present = [col for col in cat_cols_encoded if col in df_features_gnn.columns]
@@ -141,8 +141,6 @@ class IeeeFraudDetectionDataset(InMemoryDataset):
         """Builds the HeteroData graph object from preprocessed data."""
         print("Building HeteroData graph...")
         data = HeteroData()
-
-        # --- PASTE/REFINE YOUR GRAPH BUILDING LOGIC HERE ---
 
         # 1. Combine features and labels from train/val/test splits
         print("  Extracting features and labels for all splits...")
@@ -226,7 +224,7 @@ class IeeeFraudDetectionDataset(InMemoryDataset):
 
             data[node_type].num_nodes = num_entity_nodes
             # Initialize features for entity nodes (e.g., zeros or learnable embeddings later)
-            # You might want different feature dimensions per node type
+            # I might want different feature dimensions per node type
             data[node_type].x = torch.zeros((num_entity_nodes, 1), dtype=torch.float32) # Placeholder feature
 
             # Merge to get edge pairs (transaction_idx -> entity_idx)
@@ -256,7 +254,7 @@ class IeeeFraudDetectionDataset(InMemoryDataset):
                  print(f"   No edges created for node type '{node_type}'")
 
 
-        # --- End Graph Building Logic ---
+       # End Graph Building Logic 
 
         print("Validating HeteroData graph structure...")
         try:
