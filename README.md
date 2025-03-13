@@ -4,26 +4,31 @@ This repository contains a final year project focused on fraud detection in fina
 ## Project Structure
 ```
 fdgnn/
-├── data/                   # Data directory
-│   ├── raw/                # Place raw train/test csv files here
-│   └── processed/          # Output of preprocessing
-├── models/                 # Saved trained models
-├── notebooks/              # EDA notebooks
-├── scripts/                # Scripts for various tasks
-│   ├── evaluate_gnn.py     # GNN evaluation script
-│   ├── evaluate_xgb.py     # XGBoost evaluation script
-│   ├── infer_gnn.py        # GNN inference script
-│   ├── infer_xgb.py        # XGBoost inference script
-│   ├── preprocess_main.py  # Runs common preprocessing
-│   ├── preprocess_utils.py # Preprocessing functions
-│   ├── train_gnn.py        # GNN training script
-│   └── train_xgb.py        # XGBoost training script
-├── src/                    # Source code for GNN and configurations
-│   ├── config.py           # Constants & configurations
-│   ├── gnn_model.py        # GNN architecture definition
-│   ├── gnn_dataset.py      # PyG Dataset class definition
-├── requirements.txt        # Python dependencies
-└── README.md               # This file
+├── data/                               # Data directory
+│   ├── raw/                            # Place raw train/test csv files here
+│   └── processed/                      # Output of preprocessing
+├── models/                             # Saved trained models
+├── notebooks/                          # Jupyter notebooks
+│   ├── eda.ipynb                       # EDA notebook
+│   ├── model_evaluation.ipynb          # Model evaluation notebook
+│   ├── concept_drift_analysis.ipynb    # Concept drift analysis notebook
+├── scripts/                            # Scripts for various tasks
+│   ├── evaluate_gnn.py                 # GNN evaluation script
+│   ├── evaluate_xgb.py                 # XGBoost evaluation script
+│   ├── infer_gnn.py                    # GNN inference script
+│   ├── infer_xgb.py                    # XGBoost inference script
+│   ├── preprocess_main.py              # Runs common preprocessing
+│   ├── preprocess_utils.py             # Preprocessing functions
+│   ├── train_gnn.py                    # GNN training script
+│   └── train_xgb.py                    # XGBoost training script
+├── src/                                # Source code for GNN and configurations
+│   ├── config.py                       # Constants & configurations
+│   ├── gnn_model.py                    # GNN architecture definition
+│   ├── gnn_dataset.py                  # PyG Dataset class definition
+├── tests/                              # Unit tests for preprocessing utilities
+├── app.py                              # Demo app for fraud scoring
+├── requirements.txt                    # Python dependencies
+└── README.md                           # This file
 ```
 
 ## Setup
@@ -79,3 +84,7 @@ fdgnn/
         python scripts/infer_gnn.py [--device cpu]
         ```
         Loads the graph data and the saved model to generate predictions.
+5.  **Run Demo App:**
+    ```bash
+    streamlit run app.py
+    ```
