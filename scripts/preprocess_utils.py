@@ -261,31 +261,40 @@ def encode_categoricals(df, cat_cols, encoder=None, fit=True, model_type='xgboos
     print(f"   Encoding categoricals for {model_type} (fit={fit})...")
 
     df = df.copy()
+    # Use only columns present in the dataframe
+    cat_cols_present = [col for col in cat_cols if col in df.columns]
+    if not cat_cols_present:
+        print("   No categorical columns found in DataFrame to encode.")
+        return df, encoder if encoder is not None else {}
+
 
     if fit:
         # Initialize encoder structure if fitting
-        encoder = {'ohe': None, 'embedding_dims': {}, 'categories': {}, 'high_card_cols': [], 'low_card_cols': [], 'label_encoders': {}} # Added label_encoders
+        # *** ADD 'ohe_feature_names' key ***
+        encoder = {'ohe': None, 'embedding_dims': {}, 'categories': {},
+                   'high_card_cols': [], 'low_card_cols': [], 'label_encoders': {},
+                   'ohe_feature_names': []} # Initialize key
 
         # Calculate cardinality for each categorical column
-        encoder['categories'] = {col: df[col].astype('category').nunique() for col in cat_cols} # Ensure consistent counting
+        encoder['categories'] = {col: df[col].astype('category').nunique() for col in cat_cols_present} # Use present cols
 
         # Separate columns based on cardinality
-        encoder['low_card_cols'] = [col for col in cat_cols if encoder['categories'][col] <= cardinality_threshold]
-        encoder['high_card_cols'] = [col for col in cat_cols if encoder['categories'][col] > cardinality_threshold]
+        encoder['low_card_cols'] = [col for col in cat_cols_present if encoder['categories'][col] <= cardinality_threshold]
+        encoder['high_card_cols'] = [col for col in cat_cols_present if encoder['categories'][col] > cardinality_threshold]
 
         # --- GNN Specific Fitting ---
         if model_type == 'gnn':
-            for col in cat_cols:
+            # Ensure cat_cols_present is used if GNN logic relies on all cat cols
+            cols_to_process_gnn = cat_cols_present
+            print(f"     Fitting LabelEncoder for GNN columns: {cols_to_process_gnn}")
+            for col in cols_to_process_gnn:
                 cardinality = encoder['categories'][col]
-                # Rule of thumb: embedding_dim = min(max_dim, embedding_factor * sqrt(cardinality))
-                # Using a slightly more common heuristic, often just based on cardinality directly or log
-                # embedding_dim = min(max_embedding_dim, int(embedding_dim_factor * math.sqrt(cardinality))) # Original
-                embedding_dim = min(max_embedding_dim, max(2, int(cardinality / 2))) # Alternative heuristic: half cardinality, min 2, max 50
-                # embedding_dim = min(max_embedding_dim, max(2, int(math.log2(cardinality) * 4))) # Another heuristic using log
-                # Choose one heuristic or make it configurable
+                embedding_dim = min(max_embedding_dim, max(2, int(cardinality / 2)))
                 encoder['embedding_dims'][col] = embedding_dim
 
                 # Store category mapping for consistent label encoding
+                # Handle potential NaNs before getting categories/codes
+                df[col] = df[col].fillna('missing_during_fit') # Or use imputation result
                 encoder['label_encoders'][col] = {k: i for i, k in enumerate(df[col].astype('category').cat.categories)}
 
 
@@ -293,60 +302,108 @@ def encode_categoricals(df, cat_cols, encoder=None, fit=True, model_type='xgboos
         elif model_type == 'xgboost':
             # Fit OneHotEncoder ONLY for low cardinality features for XGBoost
             if encoder['low_card_cols']:
-                # Use sparse_output=False for newer scikit-learn versions
-                encoder['ohe'] = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
-                encoder['ohe'].fit(df[encoder['low_card_cols']])
+                print(f"     Fitting OHE for low cardinality columns: {encoder['low_card_cols']}")
+                # Handle NaNs before fitting OHE
+                df[encoder['low_card_cols']] = df[encoder['low_card_cols']].fillna('missing_during_fit')
+                ohe = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+                ohe.fit(df[encoder['low_card_cols']])
+                encoder['ohe'] = ohe
+                # *** STORE OHE FEATURE NAMES ***
+                encoder['ohe_feature_names'] = ohe.get_feature_names_out(encoder['low_card_cols']).tolist()
+                print(f"     Stored OHE feature names: {encoder['ohe_feature_names']}")
+
 
             # Store category mapping for consistent label encoding for high cardinality features
-            for col in encoder['high_card_cols']:
-                 encoder['label_encoders'][col] = {k: i for i, k in enumerate(df[col].astype('category').cat.categories)}
+            if encoder['high_card_cols']:
+                print(f"     Storing LabelEncoder mapping for high cardinality columns: {encoder['high_card_cols']}")
+                for col in encoder['high_card_cols']:
+                     # Handle potential NaNs before getting categories/codes
+                     df[col] = df[col].fillna('missing_during_fit')
+                     encoder['label_encoders'][col] = {k: i for i, k in enumerate(df[col].astype('category').cat.categories)}
 
-    # --- Transformation ---
-    if encoder is None:
-         raise ValueError("Encoder must be provided or fit must be True.")
-
-    if model_type == 'xgboost':
-        # Apply OHE for low cardinality
-        if encoder['low_card_cols'] and encoder.get('ohe'): # Check if OHE exists
-            try:
-                encoded = encoder['ohe'].transform(df[encoder['low_card_cols']])
-                encoded_df = pd.DataFrame(
-                    encoded,
-                    columns=encoder['ohe'].get_feature_names_out(encoder['low_card_cols']),
-                    index=df.index
-                )
-                # Drop original low card cols and concat OHE cols
-                df = df.drop(columns=encoder['low_card_cols'])
-                df = pd.concat([df, encoded_df], axis=1)
-            except ValueError as e:
-                 print(f"Warning: Error applying OHE (potentially unseen categories if handle_unknown='error'): {e}")
-                 # Handle cases where columns might be missing in the df passed during transform
-                 pass
+        # --- Apply transform after fitting to return consistent output ---
+        # This ensures the returned df from fit=True has the same structure as fit=False
+        df_transformed, _ = encode_categoricals(df, cat_cols_present, encoder=encoder, fit=False, model_type=model_type)
+        return df_transformed, encoder
 
 
-        # Apply Label Encoding for high cardinality
-        if encoder['high_card_cols']:
-            for col in encoder['high_card_cols']:
-                if col in df.columns: # Check if column exists
-                    # Map known categories, assign -1 or another value to unknowns
-                    mapping = encoder['label_encoders'].get(col, {})
-                    df[col] = df[col].map(mapping).fillna(-1).astype(int) # Use stored mapping
-                else:
-                     print(f"Warning: Column '{col}' not found during XGBoost high-cardinality encoding.")
+    # --- Transformation (fit=False) ---
+    else:
+        if encoder is None:
+             raise ValueError("Encoder must be provided when fit=False.")
+        print("   Applying fitted encoders...")
+
+        df_processed = df # Start with the input df for this transform step
+
+        if model_type == 'xgboost':
+            ohe = encoder.get('ohe')
+            low_card_cols = encoder.get('low_card_cols', [])
+            high_card_cols = encoder.get('high_card_cols', [])
+            # *** GET STORED OHE FEATURE NAMES ***
+            ohe_feature_names = encoder.get('ohe_feature_names', [])
+
+            # Apply OHE for low cardinality
+            low_card_cols_present_transform = [col for col in low_card_cols if col in df_processed.columns]
+            if ohe and low_card_cols_present_transform:
+                print(f"     Applying OHE transform to: {low_card_cols_present_transform}")
+                try:
+                    # Handle NaNs before transform
+                    df_processed[low_card_cols_present_transform] = df_processed[low_card_cols_present_transform].fillna('missing_during_fit')
+                    encoded_array = ohe.transform(df_processed[low_card_cols_present_transform])
+
+                    # *** USE STORED NAMES FOR DATAFRAME CREATION ***
+                    if not ohe_feature_names:
+                         raise ValueError("Stored OHE feature names ('ohe_feature_names') not found in encoder dictionary during transform.")
+                    if len(ohe_feature_names) != encoded_array.shape[1]:
+                         # This check is important with handle_unknown='ignore'
+                         print(f"Warning: Mismatch between stored OHE feature names ({len(ohe_feature_names)}) and transformed array columns ({encoded_array.shape[1]}).")
+                         # If this happens, something is wrong with stored names or OHE state. Error out?
+                         raise ValueError("OHE transform output shape mismatch with stored feature names.")
+
+                    encoded_df = pd.DataFrame(
+                        encoded_array,
+                        columns=ohe_feature_names, # Use stored names
+                        index=df_processed.index
+                    )
+                    # --- End Minimal Fix ---
+
+                    # Drop original low card cols and concat OHE cols
+                    df_processed = df_processed.drop(columns=low_card_cols_present_transform)
+                    df_processed = pd.concat([df_processed, encoded_df], axis=1)
+                except ValueError as e:
+                     print(f"Warning: Error applying OHE transform: {e}")
+                     pass # Or handle more robustly
 
 
-    elif model_type == 'gnn':
-        # Apply Label Encoding (integer codes) for ALL categorical features for GNN embedding lookup
-        for col in cat_cols:
-             if col in df.columns: # Check if column exists
-                # Map known categories, assign -1 or another value to unknowns
-                mapping = encoder['label_encoders'].get(col, {})
-                df[col] = df[col].map(mapping).fillna(-1).astype(int) # Use stored mapping
-             else:
-                 print(f"Warning: Column '{col}' not found during GNN encoding.")
+            # Apply Label Encoding for high cardinality
+            high_card_cols_present_transform = [col for col in high_card_cols if col in df_processed.columns]
+            if high_card_cols_present_transform:
+                print(f"     Applying LabelEncoder transform to: {high_card_cols_present_transform}")
+                for col in high_card_cols_present_transform:
+                    mapping = encoder.get('label_encoders', {}).get(col)
+                    if mapping is not None: # Check if mapping exists
+                        # Map known categories, assign -1 or another value to unknowns
+                        df_processed[col] = df_processed[col].map(mapping).fillna(-1).astype(int) # Use stored mapping
+                    else:
+                         print(f"Warning: LabelEncoder mapping not found for column '{col}'. Skipping transform.")
 
 
-    return df, encoder
+        elif model_type == 'gnn':
+            # Apply Label Encoding (integer codes) for ALL categorical features for GNN embedding lookup
+            cat_cols_present_gnn = [col for col in cat_cols if col in df_processed.columns] # Re-check present cols
+            if cat_cols_present_gnn:
+                print(f"     Applying LabelEncoder transform to GNN columns: {cat_cols_present_gnn}")
+                for col in cat_cols_present_gnn:
+                     mapping = encoder.get('label_encoders', {}).get(col)
+                     if mapping is not None: # Check if mapping exists
+                        # Map known categories, assign -1 or another value to unknowns
+                        df_processed[col] = df_processed[col].map(mapping).fillna(-1).astype(int) # Use stored mapping
+                     else:
+                         print(f"Warning: LabelEncoder mapping not found for GNN column '{col}'. Skipping transform.")
+
+        # Return the dataframe with transformations applied
+        return df_processed, encoder
+
 
 def scale_numeric_features(df: pd.DataFrame, num_cols: list, scaler: StandardScaler = None, fit: bool = True) -> tuple[pd.DataFrame, StandardScaler]:
     """
