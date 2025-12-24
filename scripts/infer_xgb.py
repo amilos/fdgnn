@@ -68,7 +68,7 @@ def infer_xgboost(raw_trans_path, raw_id_path, processors_path, model_path, outp
          # Ensure encode_categoricals(fit=False) correctly handles all cat_cols
          return
 
-    # 3. Load trained model *BEFORE* creating DMatrix
+    # 3. Load trained model BEFORE creating DMatrix
     print(f"Loading trained model from: {model_path}")
     try:
         model = xgb.Booster()

@@ -209,6 +209,8 @@ def run_common_preprocessing(
     processors['final_num_cols'] = num_cols
     processors['final_cat_cols'] = cat_cols
 
+    processors['num_numerical_features'] = len(num_cols)
+
     # --- Save Outputs ---
     print(f"Saving processed data to {output_data_path}")
     os.makedirs(os.path.dirname(output_data_path), exist_ok=True)

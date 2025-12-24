@@ -136,7 +136,8 @@ vesta_engineered_columns = [f"V{i}" for i in range(1, 340)]
 # Compute the excluded columns as the difference
 VESTA_EXCLUDED_COLUMNS = [col for col in vesta_engineered_columns if col not in VESTA_COLUMNS]
 
-# --- Node Types ---
+# GNN Node Types (columns used to define non-target nodes)
+# These columns MUST be created in `create_entity_ids` or exist in the raw data
 DEFAULT_NON_TARGET_NODE_TYPES = [
     "card_id",
     "device_profile_id",
@@ -144,14 +145,6 @@ DEFAULT_NON_TARGET_NODE_TYPES = [
     "locality_id",
 ]
 
-# GNN Node Types (columns used to define non-target nodes)
-# These columns MUST be created in `create_entity_ids` or exist in the raw data
-DEFAULT_NON_TARGET_NODE_TYPES = [
-    "card_id",             # Assumes this is created in create_entity_ids
-    "addr1",               # Example: Using addr1 directly as locality ID (ensure it's suitable)
-    "device_profile_id",   # Assumes this is created
-    # Add other engineered IDs here, e.g., 'network_profile_id'
-]
 
 # --- Preprocessing Parameters ---
 NUMBER_OF_ROWS = 100000
@@ -160,7 +153,7 @@ VAL_SPLIT_SIZE = 0.15 # Note: Train size = 1.0 - test_size - val_size
 IMPUTATION_STRATEGY = "median"
 CARDINALITY_THRESHOLD_FOR_OHE = 10 # For XGBoost encoding
 
-# --- Model Hyperparameters (Examples) ---
+# --- Model Hyperparameters ---
 # XGBoost
 XGB_PARAMS = {
     'objective': 'binary:logistic',
@@ -179,9 +172,17 @@ XGB_NUM_BOOST_ROUND = 500
 XGB_EARLY_STOPPING_ROUNDS = 50
 
 # GNN
+
 GNN_LEARNING_RATE = 0.001
 GNN_EPOCHS = 50
-GNN_HIDDEN_DIM = 128
-GNN_EMBEDDING_DIM_FACTOR = 4 # For auto-calculating embedding dims
+GNN_HIDDEN_DIM = 128 # Increased from 128
+GNN_EMBEDDING_DIM_FACTOR = 4
 GNN_MAX_EMBEDDING_DIM = 64
-GNN_PATIENCE = 10 # Early stopping patience
+GNN_PATIENCE = 10
+GNN_NUM_LAYERS = 3 # Keeping layers at 2 for now
+GNN_EMB_DIM_OTHER = 64 # Increased from 32
+
+
+GNN_SCHEDULER_FACTOR = 0.5 # Factor to reduce LR by
+GNN_SCHEDULER_PATIENCE = 5  # Epochs to wait for improvement before reducing LR
+GNN_SCHEDULER_MIN_LR = 1e-6 # Minimum learning rate
